@@ -1,0 +1,47 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f0f4f8;
+    margin: 0; padding: 0;
+}
+
+.container {
+    width: 700px;
+    margin: 40px auto;
+    padding: 24px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+button {
+    padding: 10px 16px;
+    margin: 8px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+button:disabled {
+    background: gray;
+    cursor: not-allowed;
+}
+
+audio {
+    margin-top: 10px;
+    width: 100%;
+}
+
+h2 {
+    margin-top: 20px;
+}
+
+#transcription, #gender {
+    padding: 10px;
+    background: #f3f6fb;
+    border-radius: 6px;
+    margin-top: 8px;
+    white-space: pre-wrap;
+}

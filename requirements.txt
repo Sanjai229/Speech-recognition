@@ -1,0 +1,7 @@
+Flask==2.2.5
+openai-whisper==20230314
+torch
+torchaudio
+pyannote.audio==3.2
+soundfile
+numpy
