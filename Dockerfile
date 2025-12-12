@@ -1,34 +1,39 @@
-# Use official Python 3.10 slim image
-FROM python:3.10-slim
+# Use a slim Python base image
+FROM python:3.11-slim-bullseye
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Set environment variables to prevent Python buffering and warnings
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc \
-    gfortran \
-    libsndfile1 \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies needed for Python packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        python3-dev \
+        ffmpeg \
+        libsndfile1 \
+        libffi-dev \
+        libssl-dev \
+        && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
+# Upgrade pip, setuptools, wheel
 RUN pip install --upgrade pip setuptools wheel
 
-# Copy requirements and install
+# Copy your requirements file
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Install Python dependencies
+RUN pip install -r requirements.txt
+
+# Copy the rest of your app code
 COPY . .
 
-# Expose Flask port
+# Expose Flask default port
 EXPOSE 5000
 
-# Command to run Flask app
+# Command to run your Flask app
 CMD ["python", "app.py"]
