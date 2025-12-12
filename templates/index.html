@@ -46,7 +46,6 @@
             const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
             audioPreview.src = URL.createObjectURL(audioBlob);
 
-            // Send audio to backend
             let formData = new FormData();
             formData.append("audio_data", audioBlob, "recording.wav");
 
