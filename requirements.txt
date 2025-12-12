@@ -1,5 +1,4 @@
 Flask==2.2.5
 SpeechRecognition==3.9.0
-pydub==0.25.1
 numpy==1.26.0
 scipy==1.12.1
