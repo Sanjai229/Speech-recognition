@@ -2,22 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Speech Recognition + Gender Detection</title>
+    <title>Speech Recognition & Gender Detection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>🎙 Speech Recognition + Gender Detection</h1>
+        <h1>🎙 Speech to Text + Gender Detection</h1>
         <div class="controls">
             <button id="startBtn">Start Recording</button>
             <button id="stopBtn" disabled>Stop Recording</button>
         </div>
-        <p id="status">Say something...</p>
-        <div class="result">
-            <strong>Transcription:</strong>
-            <p id="text"></p>
-            <strong>Gender Prediction:</strong>
-            <p id="gender"></p>
+        <div class="output">
+            <p><strong>Transcription:</strong></p>
+            <p id="transcription">--</p>
+            <p><strong>Gender:</strong> <span id="gender">--</span></p>
         </div>
     </div>
 
@@ -27,24 +25,24 @@
 
         const startBtn = document.getElementById("startBtn");
         const stopBtn = document.getElementById("stopBtn");
-        const status = document.getElementById("status");
-        const textEl = document.getElementById("text");
+        const transcriptionEl = document.getElementById("transcription");
         const genderEl = document.getElementById("gender");
 
         startBtn.onclick = async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.start();
-            status.innerText = "Recording...";
-
             audioChunks = [];
-            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+            mediaRecorder.start();
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
             mediaRecorder.onstop = async () => {
-                status.innerText = "Processing...";
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const formData = new FormData();
                 formData.append('audio', audioBlob, 'recording.wav');
+
+                transcriptionEl.innerText = "Transcribing...";
+                genderEl.innerText = "--";
 
                 try {
                     const response = await fetch('/transcribe', {
@@ -52,12 +50,11 @@
                         body: formData
                     });
                     const data = await response.json();
-                    textEl.innerText = data.text || "Error";
+                    transcriptionEl.innerText = data.text || "Error";
                     genderEl.innerText = data.gender || "Undefined";
-                    status.innerText = "Done!";
                 } catch (err) {
-                    status.innerText = "Error!";
-                    console.error(err);
+                    transcriptionEl.innerText = "Error in transcription";
+                    genderEl.innerText = "Undefined";
                 }
             };
 
@@ -66,7 +63,9 @@
         };
 
         stopBtn.onclick = () => {
-            mediaRecorder.stop();
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
             startBtn.disabled = false;
             stopBtn.disabled = true;
         };
