@@ -1,4 +1,7 @@
 Flask==2.2.5
-whisper==1.1.10
-pydub==0.25.1
-numpy==1.26.0
+openai-whisper==1.1.10
+numpy
+pydub
+torch
+librosa
+scikit-learn
