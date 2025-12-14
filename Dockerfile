@@ -5,28 +5,28 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set work directory
+# Set working directory
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    build-essential \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
+# Copy requirements first for caching
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app files
+# Copy project files
 COPY . .
 
-# Set environment variable for Render
-ENV WEB_CONCURRENCY=1
+# Expose the port Render uses
+EXPOSE 10000
 
-# Expose the port Render expects
-ENV PORT=10000
-
-# Start the app
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "app:app"]
+# Command to run Flask app
+CMD ["python", "app.py"]

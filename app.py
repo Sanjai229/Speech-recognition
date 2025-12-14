@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 import whisper
 from io import BytesIO
 from pydub import AudioSegment
+import tempfile
+import os
 
 app = Flask(__name__)
 model = whisper.load_model("base")  # You can switch to "small", "medium", "large" if needed
@@ -26,20 +28,24 @@ def index():
 def transcribe():
     if 'audio' not in request.files:
         return jsonify({'text': 'No audio file', 'gender': 'Undefined'})
+
     audio_file = request.files['audio']
     try:
-        audio_bytes = BytesIO(audio_file.read())
-        audio_segment = AudioSegment.from_file(audio_bytes)
-        wav_bytes = BytesIO()
-        audio_segment.export(wav_bytes, format="wav")
-        wav_bytes.seek(0)
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            audio_segment = AudioSegment.from_file(audio_file)
+            audio_segment.export(tmp.name, format="wav")
+            tmp_path = tmp.name
 
-        # Transcribe
-        result = model.transcribe(wav_bytes)
+        # Transcribe using Whisper
+        result = model.transcribe(tmp_path)
         text = result["text"].strip()
 
         # Predict gender
         gender = predict_gender(text)
+
+        # Cleanup temp file
+        os.remove(tmp_path)
 
         return jsonify({'text': text, 'gender': gender})
     except Exception as e:
@@ -47,4 +53,5 @@ def transcribe():
         return jsonify({'text': 'Error', 'gender': 'Undefined'})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
