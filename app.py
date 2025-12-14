@@ -1,57 +1,41 @@
-from flask import Flask, render_template, request, jsonify
-import whisper
-from io import BytesIO
+from flask import Flask, request, jsonify
 from pydub import AudioSegment
-import tempfile
+import whisper
 import os
 
 app = Flask(__name__)
-model = whisper.load_model("base")  # You can switch to "small", "medium", "large" if needed
 
-# Simple gender detection based on pronouns (demo purpose)
-def predict_gender(text):
-    male_words = ['he', 'him', 'his']
-    female_words = ['she', 'her', 'hers']
-    text_lower = text.lower()
-    if any(word in text_lower for word in male_words):
-        return "Male"
-    elif any(word in text_lower for word in female_words):
-        return "Female"
-    else:
-        return "Unknown"
+# Load Whisper model
+model = whisper.load_model("base")  # Change to "small", "medium", "large" if needed
 
 @app.route('/')
-def index():
-    return render_template('index.html')
+def home():
+    return "Whisper Flask API is running!"
 
 @app.route('/transcribe', methods=['POST'])
-def transcribe():
-    if 'audio' not in request.files:
-        return jsonify({'text': 'No audio file', 'gender': 'Undefined'})
+def transcribe_audio():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-    audio_file = request.files['audio']
-    try:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            audio_segment = AudioSegment.from_file(audio_file)
-            audio_segment.export(tmp.name, format="wav")
-            tmp_path = tmp.name
+    file = request.files['file']
+    filename = file.filename
+    file_path = os.path.join("/tmp", filename)
+    file.save(file_path)
 
-        # Transcribe using Whisper
-        result = model.transcribe(tmp_path)
-        text = result["text"].strip()
+    # Convert audio to wav if needed
+    audio = AudioSegment.from_file(file_path)
+    wav_path = file_path.rsplit('.', 1)[0] + ".wav"
+    audio.export(wav_path, format="wav")
 
-        # Predict gender
-        gender = predict_gender(text)
+    # Transcribe using Whisper
+    result = model.transcribe(wav_path)
+    text = result['text']
 
-        # Cleanup temp file
-        os.remove(tmp_path)
+    # Clean up
+    os.remove(file_path)
+    os.remove(wav_path)
 
-        return jsonify({'text': text, 'gender': gender})
-    except Exception as e:
-        print("Error:", e)
-        return jsonify({'text': 'Error', 'gender': 'Undefined'})
+    return jsonify({"transcription": text})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
