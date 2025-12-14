@@ -1,51 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Speech to Text + Gender Detection</title>
+    <meta charset="UTF-8">
+    <title>Speech Recognition</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Speak and Predict</h1>
-    <button id="recordBtn">Start Recording</button>
-    <p id="resultText"></p>
-    <p id="resultGender"></p>
+
+    <h1>Speech to Text</h1>
+    <button onclick="startRecording()">Start Recording (5 sec)</button>
+    <p id="result"></p>
 
     <script>
-        const recordBtn = document.getElementById("recordBtn");
-        const resultText = document.getElementById("resultText");
-        const resultGender = document.getElementById("resultGender");
+        let mediaRecorder;
+        let audioChunks = [];
 
-        recordBtn.addEventListener("click", async () => {
+        async function startRecording() {
+            document.getElementById("result").innerText = "Recording...";
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
-            let audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
 
             mediaRecorder.ondataavailable = event => {
                 audioChunks.push(event.data);
             };
 
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const formData = new FormData();
-                formData.append("audio", audioBlob, "speech.wav");
+                formData.append("audio", audioBlob, "recording.wav");
 
-                const response = await fetch("/predict", {
+                const response = await fetch("/transcribe", {
                     method: "POST",
                     body: formData
                 });
 
                 const data = await response.json();
-                resultText.innerText = "Text: " + data.text;
-                resultGender.innerText = "Gender: " + data.gender;
+
+                if (data.text) {
+                    document.getElementById("result").innerText =
+                        "Recognized Text:\n" + data.text;
+                } else {
+                    document.getElementById("result").innerText =
+                        "Error: " + data.error;
+                }
             };
 
-            mediaRecorder.start();
-            recordBtn.innerText = "Recording...";
             setTimeout(() => {
                 mediaRecorder.stop();
-                recordBtn.innerText = "Start Recording";
-            }, 5000); // record 5 seconds
-        });
+                audioChunks = [];
+            }, 5000);
+        }
     </script>
+
 </body>
 </html>
