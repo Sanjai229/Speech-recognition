@@ -1,24 +1,24 @@
 from flask import Flask, request, jsonify, render_template
 import whisper
+import torch
+import torchaudio
 import numpy as np
 import librosa
-from pydub import AudioSegment
-import os
 
 app = Flask(__name__)
 
-# Load Whisper model once
-model = whisper.load_model("base")  # You can use small/medium/large
+# Load Whisper model
+model = whisper.load_model("base")
 
-# Simple gender detection using pitch
+# Gender detection simple model (based on pitch)
 def detect_gender(audio_path):
-    y, sr = librosa.load(audio_path, sr=None)
+    y, sr = librosa.load(audio_path, sr=16000)
     pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
-    pitch_values = pitches[magnitudes > np.median(magnitudes)]
-    if len(pitch_values) == 0:
-        return "Unknown"
-    avg_pitch = np.mean(pitch_values)
-    return "Female" if avg_pitch > 160 else "Male"
+    pitch = np.mean(pitches[pitches > 0])
+    if pitch < 160:
+        return "Male"
+    else:
+        return "Female"
 
 @app.route('/')
 def index():
@@ -27,31 +27,20 @@ def index():
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     if 'audio' not in request.files:
-        return jsonify({"error": "No audio file uploaded"}), 400
-
+        return jsonify({'error': 'No audio uploaded'}), 400
+    
     audio_file = request.files['audio']
-    audio_path = "temp_audio.wav"
-    audio_file.save(audio_path)
-
-    # Convert to mono WAV
-    audio = AudioSegment.from_file(audio_path)
-    audio = audio.set_channels(1)
-    audio.export(audio_path, format="wav")
-
+    file_path = 'temp.wav'
+    audio_file.save(file_path)
+    
     # Whisper transcription
-    result = model.transcribe(audio_path)
-    text = result.get("text", "")
-
+    result = model.transcribe(file_path)
+    text = result['text']
+    
     # Gender detection
-    gender = detect_gender(audio_path)
+    gender = detect_gender(file_path)
+    
+    return jsonify({'text': text, 'gender': gender})
 
-    # Remove temp audio
-    os.remove(audio_path)
-
-    return jsonify({
-        "text": text,
-        "gender": gender
-    })
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
