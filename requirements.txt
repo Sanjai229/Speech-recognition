@@ -1,4 +1,4 @@
 Flask==2.2.5
-openai-whisper==1.1.10
+whisper==20250625
 pydub==0.25.1
 numpy==1.26.0
