@@ -1,44 +1,36 @@
-from flask import Flask, render_template, request, jsonify
-import tempfile
-import librosa
-import numpy as np
-# from your_gender_model import predict_gender  # Replace with your gender model
-# from whisper_module import transcribe_audio   # Replace with actual Whisper transcription
+from flask import Flask, request, jsonify, render_template
+import os
+import speech_recognition as sr
+# import your gender prediction model if you have one
 
 app = Flask(__name__)
 
-# Dummy functions for demonstration
-def predict_gender(y, sr):
-    # Example: replace with actual model
-    energy = np.mean(np.abs(y))
-    return "Male" if energy > 0.01 else "Female"
-
-def transcribe_audio(y, sr):
-    # Example: replace with Whisper API call
-    return "This is a dummy transcription."
-
-@app.route("/")
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-@app.route("/predict", methods=["POST"])
-def predict():
+@app.route('/transcribe', methods=['POST'])
+def transcribe():
     if 'audio' not in request.files:
-        return jsonify({"error": "No audio file provided"}), 400
+        return jsonify({'error': 'No audio file provided'}), 400
 
-    audio_file = request.files["audio"]
+    audio_file = request.files['audio']
+    temp_path = "temp_audio.wav"
+    audio_file.save(temp_path)
 
-    with tempfile.NamedTemporaryFile(suffix=".wav") as temp_audio:
-        audio_file.save(temp_audio.name)
-        y, sr = librosa.load(temp_audio.name, sr=16000)
+    recognizer = sr.Recognizer()
+    try:
+        with sr.AudioFile(temp_path) as source:
+            audio_data = recognizer.record(source)
+            text = recognizer.recognize_google(audio_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-        # Get transcription
-        text = transcribe_audio(y, sr)
+    # Placeholder for gender prediction
+    gender = "Male/Female/Undefined"  # replace with your model logic
 
-        # Get gender
-        gender = predict_gender(y, sr)
-
-        return jsonify({"text": text, "gender": gender})
+    return jsonify({'text': text, 'gender': gender})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
