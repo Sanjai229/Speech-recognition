@@ -1,25 +1,26 @@
-# Use official Python slim image
+# Use Python 3.10 base image
 FROM python:3.10-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements
-COPY requirements.txt .
+# Install ffmpeg (required for pydub)
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and install dependencies
+# Copy requirements and install
+COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all project files
 COPY . .
 
-# Expose Flask port
+# Expose port
 EXPOSE 5000
 
-# Flask environment variables
+# Set environment variables for Flask
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
-# Command to start Flask
+# Start Flask
 CMD ["flask", "run"]
