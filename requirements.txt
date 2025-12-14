@@ -1,27 +1,8 @@
-# Web framework
 Flask==2.2.5
-
-# OpenAI Whisper for speech recognition
 openai-whisper==20250625
-
-# PyTorch & audio support
-torch==2.3.1
-torchaudio==2.3.1
-
-# Numerical computations
-numpy==1.27.5
-scipy==1.11.1
-
-# Optional: For audio file handling
+torch==2.2.0
+torchaudio==2.2.0
+numpy==1.26.4
+tqdm==4.66.1
+requests==2.31.0
 soundfile==0.12.1
-librosa==0.10.1
-
-# Optional: For concurrency / async tasks
-fastapi==0.111.0
-uvicorn==0.24.0
-
-# Optional: For file uploads / data handling
-pandas==2.1.1
-
-# Optional: For logging
-loguru==0.7.0

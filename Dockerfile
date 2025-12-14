@@ -1,4 +1,4 @@
-# Use Python 3.10 slim image to avoid numpy/torch conflicts
+# Use Python 3.10 slim image
 FROM python:3.10-slim-bullseye
 
 # Set working directory
@@ -13,10 +13,9 @@ RUN apt-get update && \
         libsndfile1 \
         libffi-dev \
         libssl-dev \
-        git \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip, setuptools, wheel
+# Upgrade pip, setuptools, and wheel
 RUN pip install --upgrade pip setuptools wheel
 
 # Copy requirements file
@@ -25,11 +24,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
+# Copy the rest of your app code
 COPY . .
 
-# Expose port (adjust if needed)
+# Expose port (if your app uses Flask)
 EXPOSE 5000
 
-# Command to run your app (adjust if your entrypoint is different)
+# Default command
 CMD ["python", "app.py"]
