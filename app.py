@@ -1,60 +1,57 @@
 from flask import Flask, request, jsonify, render_template
-import openai_whisper as whisper
-import os
+import whisper
 import numpy as np
+import librosa
 from pydub import AudioSegment
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+import os
 
 app = Flask(__name__)
 
-# Load Whisper model for transcription
-model = whisper.load_model("base")  # Options: "small", "medium", "large"
+# Load Whisper model once
+model = whisper.load_model("base")  # You can use small/medium/large
 
-# Dummy gender detection (replace with your trained model or simple rules)
-# Here we just simulate a gender classifier for demonstration
-# In practice, you'd train an SVM or neural network with audio features
-
-# Example SVM model (dummy, random weights)
-scaler = StandardScaler()
-gender_model = SVC(probability=True)
-
+# Simple gender detection using pitch
 def detect_gender(audio_path):
-    # Convert to mono and 16kHz
-    audio = AudioSegment.from_file(audio_path)
-    audio = audio.set_channels(1).set_frame_rate(16000)
-    samples = np.array(audio.get_array_of_samples()).astype(np.float32)
-    
-    # Dummy feature extraction: use mean and std
-    features = np.array([samples.mean(), samples.std()]).reshape(1, -1)
-    features = scaler.fit_transform(features)  # scale
-    
-    # Dummy prediction
-    pred = gender_model.fit(features, [0]).predict(features)  # always returns 0 (male)
-    return "Male" if pred[0] == 0 else "Female"
+    y, sr = librosa.load(audio_path, sr=None)
+    pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
+    pitch_values = pitches[magnitudes > np.median(magnitudes)]
+    if len(pitch_values) == 0:
+        return "Unknown"
+    avg_pitch = np.mean(pitch_values)
+    return "Female" if avg_pitch > 160 else "Male"
 
-@app.route("/")
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-@app.route("/transcribe", methods=["POST"])
+@app.route('/transcribe', methods=['POST'])
 def transcribe():
-    if "audio" not in request.files:
+    if 'audio' not in request.files:
         return jsonify({"error": "No audio file uploaded"}), 400
-    
-    audio_file = request.files["audio"]
-    audio_path = "temp.wav"
+
+    audio_file = request.files['audio']
+    audio_path = "temp_audio.wav"
     audio_file.save(audio_path)
 
-    # Transcription
+    # Convert to mono WAV
+    audio = AudioSegment.from_file(audio_path)
+    audio = audio.set_channels(1)
+    audio.export(audio_path, format="wav")
+
+    # Whisper transcription
     result = model.transcribe(audio_path)
     text = result.get("text", "")
 
     # Gender detection
     gender = detect_gender(audio_path)
 
+    # Remove temp audio
     os.remove(audio_path)
-    return jsonify({"text": text, "gender": gender})
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    return jsonify({
+        "text": text,
+        "gender": gender
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
