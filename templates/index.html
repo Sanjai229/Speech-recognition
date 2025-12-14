@@ -2,24 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Speech Recognition</title>
+    <title>Speech Gender Detection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
     <h1>Speech to Text</h1>
-    <button onclick="startRecording()">Start Recording (5 sec)</button>
-    <p id="result"></p>
+
+    <button onclick="startRecording()">🎙 Start Recording (5s)</button>
+
+    <p id="status"></p>
+    <pre id="result"></pre>
 
     <script>
         let mediaRecorder;
         let audioChunks = [];
 
         async function startRecording() {
-            document.getElementById("result").innerText = "Recording...";
+            document.getElementById("status").innerText = "🎧 Recording...";
+            document.getElementById("result").innerText = "";
+
+            audioChunks = [];
 
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
+
             mediaRecorder.start();
 
             mediaRecorder.ondataavailable = event => {
@@ -27,29 +34,38 @@
             };
 
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                document.getElementById("status").innerText = "⏳ Processing audio...";
+
+                const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
                 const formData = new FormData();
-                formData.append("audio", audioBlob, "recording.wav");
+                formData.append("audio", audioBlob, "recording.webm");
 
-                const response = await fetch("/transcribe", {
-                    method: "POST",
-                    body: formData
-                });
+                try {
+                    const response = await fetch("/transcribe", {
+                        method: "POST",
+                        body: formData
+                    });
 
-                const data = await response.json();
+                    const data = await response.json();
 
-                if (data.text) {
+                    if (data.error) {
+                        document.getElementById("result").innerText = "❌ " + data.error;
+                    } else {
+                        document.getElementById("result").innerText =
+                            "📝 Transcription:\n" + data.text;
+                    }
+
+                } catch (err) {
                     document.getElementById("result").innerText =
-                        "Recognized Text:\n" + data.text;
-                } else {
-                    document.getElementById("result").innerText =
-                        "Error: " + data.error;
+                        "❌ Failed to connect to server";
                 }
+
+                document.getElementById("status").innerText = "";
             };
 
+            // Auto stop after 5 seconds
             setTimeout(() => {
                 mediaRecorder.stop();
-                audioChunks = [];
             }, 5000);
         }
     </script>

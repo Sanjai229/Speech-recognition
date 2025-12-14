@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 import speech_recognition as sr
-import os
 import tempfile
+import os
+import subprocess
 
 app = Flask(__name__)
 
@@ -12,30 +13,41 @@ def index():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     if "audio" not in request.files:
-        return jsonify({"error": "No audio file received"}), 400
+        return jsonify({"error": "No audio uploaded"}), 400
 
     audio_file = request.files["audio"]
 
-    recognizer = sr.Recognizer()
+    # Save original browser audio (webm/ogg)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as input_audio:
+        audio_file.save(input_audio.name)
+        input_path = input_audio.name
 
-    # Save audio temporarily
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        audio_file.save(temp_audio.name)
-        temp_path = temp_audio.name
+    # Convert to WAV using ffmpeg
+    output_path = input_path.replace(".webm", ".wav")
 
     try:
-        with sr.AudioFile(temp_path) as source:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", input_path, output_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(output_path) as source:
             audio = recognizer.record(source)
             text = recognizer.recognize_google(audio)
+
     except sr.UnknownValueError:
-        text = "Could not understand the audio"
-    except sr.RequestError as e:
-        return jsonify({"error": f"Speech service error: {e}"}), 500
+        text = "Could not understand audio"
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     finally:
-        os.remove(temp_path)
+        os.remove(input_path)
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
     return jsonify({"text": text})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
