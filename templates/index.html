@@ -2,73 +2,74 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Speech Gender Detection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Recognition + Gender Detection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <div class="container">
+        <h1>🎙 Speech Recognition & Gender Detection</h1>
+        
+        <div class="controls">
+            <button id="startBtn">Start Recording</button>
+            <button id="stopBtn" disabled>Stop Recording</button>
+        </div>
 
-    <h1>Speech to Text</h1>
+        <div class="results">
+            <h2>Live Transcription:</h2>
+            <p id="transcription">Say something...</p>
 
-    <button onclick="startRecording()">🎙 Start Recording (5s)</button>
-
-    <p id="status"></p>
-    <pre id="result"></pre>
+            <h2>Gender Prediction:</h2>
+            <p id="gender">Waiting...</p>
+        </div>
+    </div>
 
     <script>
         let mediaRecorder;
         let audioChunks = [];
 
-        async function startRecording() {
-            document.getElementById("status").innerText = "🎧 Recording...";
-            document.getElementById("result").innerText = "";
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const transcriptionEl = document.getElementById('transcription');
+        const genderEl = document.getElementById('gender');
 
-            audioChunks = [];
-
+        startBtn.addEventListener('click', async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
 
             mediaRecorder.start();
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            transcriptionEl.innerText = "Recording...";
 
             mediaRecorder.ondataavailable = event => {
                 audioChunks.push(event.data);
             };
+        });
+
+        stopBtn.addEventListener('click', async () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                stopBtn.disabled = true;
+                startBtn.disabled = false;
+            }
 
             mediaRecorder.onstop = async () => {
-                document.getElementById("status").innerText = "⏳ Processing audio...";
-
-                const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const formData = new FormData();
-                formData.append("audio", audioBlob, "recording.webm");
+                formData.append('audio', audioBlob, 'recording.wav');
 
-                try {
-                    const response = await fetch("/transcribe", {
-                        method: "POST",
-                        body: formData
-                    });
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
 
-                    const data = await response.json();
-
-                    if (data.error) {
-                        document.getElementById("result").innerText = "❌ " + data.error;
-                    } else {
-                        document.getElementById("result").innerText =
-                            "📝 Transcription:\n" + data.text;
-                    }
-
-                } catch (err) {
-                    document.getElementById("result").innerText =
-                        "❌ Failed to connect to server";
-                }
-
-                document.getElementById("status").innerText = "";
+                const data = await response.json();
+                transcriptionEl.innerText = data.text;
+                genderEl.innerText = data.gender;
             };
-
-            // Auto stop after 5 seconds
-            setTimeout(() => {
-                mediaRecorder.stop();
-            }, 5000);
-        }
+        });
     </script>
-
 </body>
 </html>
