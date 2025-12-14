@@ -1,53 +1,44 @@
 from flask import Flask, render_template, request, jsonify
-import speech_recognition as sr
 import tempfile
-import os
-import subprocess
+import librosa
+import numpy as np
+# from your_gender_model import predict_gender  # Replace with your gender model
+# from whisper_module import transcribe_audio   # Replace with actual Whisper transcription
 
 app = Flask(__name__)
+
+# Dummy functions for demonstration
+def predict_gender(y, sr):
+    # Example: replace with actual model
+    energy = np.mean(np.abs(y))
+    return "Male" if energy > 0.01 else "Female"
+
+def transcribe_audio(y, sr):
+    # Example: replace with Whisper API call
+    return "This is a dummy transcription."
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-@app.route("/transcribe", methods=["POST"])
-def transcribe():
-    if "audio" not in request.files:
-        return jsonify({"error": "No audio uploaded"}), 400
+@app.route("/predict", methods=["POST"])
+def predict():
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files["audio"]
 
-    # Save original browser audio (webm/ogg)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as input_audio:
-        audio_file.save(input_audio.name)
-        input_path = input_audio.name
+    with tempfile.NamedTemporaryFile(suffix=".wav") as temp_audio:
+        audio_file.save(temp_audio.name)
+        y, sr = librosa.load(temp_audio.name, sr=16000)
 
-    # Convert to WAV using ffmpeg
-    output_path = input_path.replace(".webm", ".wav")
+        # Get transcription
+        text = transcribe_audio(y, sr)
 
-    try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path, output_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
+        # Get gender
+        gender = predict_gender(y, sr)
 
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(output_path) as source:
-            audio = recognizer.record(source)
-            text = recognizer.recognize_google(audio)
-
-    except sr.UnknownValueError:
-        text = "Could not understand audio"
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
-    return jsonify({"text": text})
+        return jsonify({"text": text, "gender": gender})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True)

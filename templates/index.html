@@ -1,75 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech Recognition + Gender Detection</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech to Text & Gender Detection</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+    }
+    header {
+      margin-top: 40px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    #controls {
+      margin: 20px;
+    }
+    button {
+      background-color: #fff;
+      color: #2575fc;
+      border: none;
+      padding: 15px 25px;
+      font-size: 1rem;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 5px;
+      transition: 0.3s;
+    }
+    button:hover {
+      background-color: #dce1f2;
+    }
+    #result {
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 700px;
+      min-height: 100px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+    footer {
+      margin-top: auto;
+      padding: 20px;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎙 Speech Recognition & Gender Detection</h1>
-        
-        <div class="controls">
-            <button id="startBtn">Start Recording</button>
-            <button id="stopBtn" disabled>Stop Recording</button>
-        </div>
 
-        <div class="results">
-            <h2>Live Transcription:</h2>
-            <p id="transcription">Say something...</p>
+  <header>
+    <h1>🎙 Speech to Text & Gender Detection</h1>
+    <p>Press Start and speak. Stop whenever you want.</p>
+  </header>
 
-            <h2>Gender Prediction:</h2>
-            <p id="gender">Waiting...</p>
-        </div>
-    </div>
+  <div id="controls">
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop Recording</button>
+  </div>
 
-    <script>
-        let mediaRecorder;
-        let audioChunks = [];
+  <div id="result">Transcription and Gender will appear here...</div>
 
-        const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const transcriptionEl = document.getElementById('transcription');
-        const genderEl = document.getElementById('gender');
+  <footer>Powered by Whisper & Gender Detection AI</footer>
 
-        startBtn.addEventListener('click', async () => {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
 
-            mediaRecorder.start();
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            transcriptionEl.innerText = "Recording...";
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resultDiv = document.getElementById('result');
 
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
-        });
+    startBtn.onclick = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
 
-        stopBtn.addEventListener('click', async () => {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                stopBtn.disabled = true;
-                startBtn.disabled = false;
-            }
+      mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
 
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'recording.wav');
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.wav');
 
-                const response = await fetch('/transcribe', {
-                    method: 'POST',
-                    body: formData
-                });
+        try {
+          const response = await fetch('/predict', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await response.json();
+          resultDiv.innerText = `Text: ${data.text}\nGender: ${data.gender}`;
+        } catch (err) {
+          resultDiv.innerText = "Error: Could not process audio.";
+        }
+      };
 
-                const data = await response.json();
-                transcriptionEl.innerText = data.text;
-                genderEl.innerText = data.gender;
-            };
-        });
-    </script>
+      mediaRecorder.start();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      resultDiv.innerText = "Recording... Speak now!";
+    };
+
+    stopBtn.onclick = () => {
+      mediaRecorder.stop();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+  </script>
 </body>
 </html>
