@@ -1,6 +1,2 @@
 Flask==2.2.5
-whisper==20250625
-pydub==0.25.1
-numpy==1.26.4
-torch==2.2.0
-torchaudio==2.2.0
+whisper==1.1.10
