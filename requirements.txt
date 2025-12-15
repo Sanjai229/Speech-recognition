@@ -1,7 +1,7 @@
 Flask==2.2.5
-openai-whisper
-torch
 numpy
 librosa
 scikit-learn
 soundfile
+torch
+openai-whisper
