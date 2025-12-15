@@ -1,9 +1,7 @@
 Flask==2.2.5
-openai-whisper==20240930
-torch>=2.0.1
-torchaudio>=2.0.2
-numpy
-pydub
-scipy
+openai-whisper
 librosa
+numpy
+scikit-learn
 soundfile
+ffmpeg-python
