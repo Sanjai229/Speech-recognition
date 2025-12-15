@@ -1,27 +1,26 @@
 import os
-import tempfile
-import pickle
-import numpy as np
-import librosa
+import subprocess
 import whisper
+import librosa
+import numpy as np
+import pickle
+from flask import Flask, request, jsonify, render_template
 
-from flask import Flask, render_template, request, jsonify
+app = Flask(__name__)
 
-# ---------------- CONFIG ----------------
-PORT = int(os.environ.get("PORT", 10000))
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# ---------------- LOAD MODELS (ONCE) ----------------
+# Load Whisper (tiny = fastest for Render)
 print("Loading Whisper tiny model...")
 whisper_model = whisper.load_model("tiny")
 print("Whisper loaded")
 
+# Load gender model
 print("Loading gender model...")
 with open("gender_model.pkl", "rb") as f:
     gender_model = pickle.load(f)
 print("Gender model loaded")
-
-# ---------------- FLASK APP ----------------
-app = Flask(__name__)
 
 
 @app.route("/")
@@ -31,33 +30,41 @@ def index():
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    if "audio" not in request.files:
-        return jsonify({"text": "No audio received", "gender": "Undefined"})
-
-    audio_file = request.files["audio"]
-
-    # Save temp wav
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        audio_path = tmp.name
-        audio_file.save(audio_path)
-
     try:
-        # ---------- TRANSCRIPTION ----------
-        result = whisper_model.transcribe(
-            audio_path,
-            fp16=False
+        if "audio" not in request.files:
+            return jsonify({"error": "No audio file"}), 400
+
+        audio_file = request.files["audio"]
+
+        input_path = os.path.join(UPLOAD_DIR, "input.webm")
+        wav_path = os.path.join(UPLOAD_DIR, "converted.wav")
+
+        audio_file.save(input_path)
+
+        # 🔥 CONVERT WEBM → WAV (THIS IS THE KEY FIX)
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", input_path, "-ar", "16000", "-ac", "1", wav_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
         )
+
+        # ---------- WHISPER ----------
+        result = whisper_model.transcribe(wav_path, fp16=False)
         text = result.get("text", "").strip()
 
-        # ---------- GENDER PREDICTION ----------
-        y, sr = librosa.load(audio_path, sr=16000)
-        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        mfcc_mean = np.mean(mfcc.T, axis=0).reshape(1, -1)
+        if text == "":
+            text = "No speech detected"
 
-        gender = gender_model.predict(mfcc_mean)[0]
+        # ---------- GENDER ----------
+        y, sr = librosa.load(wav_path, sr=16000)
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        features = np.mean(mfcc.T, axis=0).reshape(1, -1)
+
+        gender = gender_model.predict(features)[0]
 
         return jsonify({
-            "text": text if text else "No speech detected",
+            "text": text,
             "gender": gender.capitalize()
         })
 
@@ -68,9 +75,7 @@ def transcribe():
             "gender": "Undefined"
         })
 
-    finally:
-        os.remove(audio_path)
-
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
