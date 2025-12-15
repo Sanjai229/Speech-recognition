@@ -1,7 +1,7 @@
 Flask==2.2.5
 openai-whisper
-librosa
+torch
 numpy
+librosa
 scikit-learn
 soundfile
-ffmpeg-python

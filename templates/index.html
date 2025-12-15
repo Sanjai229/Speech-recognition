@@ -6,69 +6,68 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>🎙 Speech to Text + Gender Detection</h1>
-        <div class="controls">
-            <button id="startBtn">Start Recording</button>
-            <button id="stopBtn" disabled>Stop Recording</button>
-        </div>
-        <div class="output">
-            <p><strong>Transcription:</strong></p>
-            <p id="transcription">--</p>
-            <p><strong>Gender:</strong> <span id="gender">--</span></p>
-        </div>
-    </div>
+<div class="container">
+    <h1>🎙 Speech to Text + Gender Detection</h1>
 
-    <script>
-        let mediaRecorder;
-        let audioChunks = [];
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop Recording</button>
 
-        const startBtn = document.getElementById("startBtn");
-        const stopBtn = document.getElementById("stopBtn");
-        const transcriptionEl = document.getElementById("transcription");
-        const genderEl = document.getElementById("gender");
+    <p><strong>Transcription:</strong></p>
+    <p id="transcription">--</p>
 
-        startBtn.onclick = async () => {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            mediaRecorder.start();
+    <p><strong>Gender:</strong></p>
+    <p id="gender">--</p>
+</div>
 
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+<script>
+let mediaRecorder;
+let audioChunks = [];
 
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'recording.wav');
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const transcriptionEl = document.getElementById("transcription");
+const genderEl = document.getElementById("gender");
 
-                transcriptionEl.innerText = "Transcribing...";
-                genderEl.innerText = "--";
+startBtn.onclick = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-                try {
-                    const response = await fetch('/transcribe', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-                    transcriptionEl.innerText = data.text || "Error";
-                    genderEl.innerText = data.gender || "Undefined";
-                } catch (err) {
-                    transcriptionEl.innerText = "Error in transcription";
-                    genderEl.innerText = "Undefined";
-                }
-            };
+    mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm"
+    });
 
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-        };
+    audioChunks = [];
+    mediaRecorder.start();
 
-        stopBtn.onclick = () => {
-            if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                mediaRecorder.stop();
-            }
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-        };
-    </script>
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+    mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+
+        transcriptionEl.innerText = "Transcribing...";
+        genderEl.innerText = "--";
+
+        const response = await fetch("/transcribe", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+        transcriptionEl.innerText = data.text;
+        genderEl.innerText = data.gender;
+    };
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+};
+
+stopBtn.onclick = () => {
+    mediaRecorder.stop();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+};
+</script>
 </body>
 </html>
