@@ -1,79 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Speech to Text + Gender Detection</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <title>Speech Recognition + Gender Detection</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-<div class="container">
-    <h1>🎙 Speech to Text & Gender Detection</h1>
+<h1>🎤 Speech Recognition & Gender Detection</h1>
 
-    <div class="controls">
-        <button id="startBtn">Start Recording</button>
-        <button id="stopBtn" disabled>Stop Recording</button>
-    </div>
+<button id="recordBtn">Start Recording</button>
+<button id="stopBtn" disabled>Stop Recording</button>
 
-    <div class="output">
-        <p><strong>Transcription:</strong></p>
-        <p id="transcription">--</p>
+<p id="status"></p>
 
-        <p><strong>Gender:</strong>
-            <span id="gender">--</span>
-        </p>
-    </div>
-</div>
+<h3>Transcription:</h3>
+<p id="text"></p>
+
+<h3>Gender:</h3>
+<p id="gender"></p>
 
 <script>
-let recorder;
+let mediaRecorder;
 let audioChunks = [];
 
-const startBtn = document.getElementById("startBtn");
+const recordBtn = document.getElementById("recordBtn");
 const stopBtn = document.getElementById("stopBtn");
-const transcription = document.getElementById("transcription");
-const gender = document.getElementById("gender");
 
-startBtn.onclick = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    audioChunks = [];
+recordBtn.onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    recorder.ondataavailable = e => audioChunks.push(e.data);
+  mediaRecorder = new MediaRecorder(stream, {
+    mimeType: "audio/webm;codecs=opus"
+  });
 
-    recorder.onstop = async () => {
-        const blob = new Blob(audioChunks, { type: "audio/wav" });
-        const formData = new FormData();
-        formData.append("audio", blob, "recording.wav");
+  audioChunks = [];
 
-        transcription.innerText = "Transcribing...";
-        gender.innerText = "--";
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) audioChunks.push(e.data);
+  };
 
-        try {
-            const res = await fetch("/transcribe", {
-                method: "POST",
-                body: formData
-            });
-
-            const data = await res.json();
-            transcription.innerText = data.text;
-            gender.innerText = data.gender;
-
-        } catch {
-            transcription.innerText = "Error in transcription";
-            gender.innerText = "Undefined";
-        }
-    };
-
-    recorder.start();
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
+  mediaRecorder.start();
+  recordBtn.disabled = true;
+  stopBtn.disabled = false;
+  document.getElementById("status").innerText = "Recording...";
 };
 
-stopBtn.onclick = () => {
-    recorder.stop();
-    startBtn.disabled = false;
+stopBtn.onclick = async () => {
+  mediaRecorder.stop();
+
+  mediaRecorder.onstop = async () => {
+    document.getElementById("status").innerText = "Transcribing...";
+
+    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+
+    const formData = new FormData();
+    formData.append("audio", audioBlob, "recording.webm");
+
+    const response = await fetch("/transcribe", {
+      method: "POST",
+      body: formData
+    });
+
+    const result = await response.json();
+
+    document.getElementById("text").innerText = result.text;
+    document.getElementById("gender").innerText = result.gender;
+
+    recordBtn.disabled = false;
     stopBtn.disabled = true;
+    document.getElementById("status").innerText = "";
+  };
 };
 </script>
 

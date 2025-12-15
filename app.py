@@ -11,12 +11,10 @@ app = Flask(__name__)
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Load Whisper (tiny = fastest for Render)
 print("Loading Whisper tiny model...")
 whisper_model = whisper.load_model("tiny")
 print("Whisper loaded")
 
-# Load gender model
 print("Loading gender model...")
 with open("gender_model.pkl", "rb") as f:
     gender_model = pickle.load(f)
@@ -31,45 +29,48 @@ def index():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     try:
-        if "audio" not in request.files:
-            return jsonify({"error": "No audio file"}), 400
+        print("Received /transcribe request")
 
-        audio_file = request.files["audio"]
+        if "audio" not in request.files:
+            print("ERROR: No audio field in request")
+            return jsonify({"text": "No audio received", "gender": "Undefined"})
+
+        audio = request.files["audio"]
+        print("Audio filename:", audio.filename)
 
         input_path = os.path.join(UPLOAD_DIR, "input.webm")
-        wav_path = os.path.join(UPLOAD_DIR, "converted.wav")
+        wav_path = os.path.join(UPLOAD_DIR, "audio.wav")
 
-        audio_file.save(input_path)
+        audio.save(input_path)
+        print("Saved input.webm")
 
-        # 🔥 CONVERT WEBM → WAV (THIS IS THE KEY FIX)
+        # Convert to WAV
         subprocess.run(
             ["ffmpeg", "-y", "-i", input_path, "-ar", "16000", "-ac", "1", wav_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
             check=True
         )
+        print("Converted to WAV")
 
-        # ---------- WHISPER ----------
+        # Whisper
         result = whisper_model.transcribe(wav_path, fp16=False)
-        text = result.get("text", "").strip()
+        text = result["text"].strip()
+        print("Whisper text:", text)
 
-        if text == "":
-            text = "No speech detected"
-
-        # ---------- GENDER ----------
+        # Gender
         y, sr = librosa.load(wav_path, sr=16000)
         mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
         features = np.mean(mfcc.T, axis=0).reshape(1, -1)
 
         gender = gender_model.predict(features)[0]
+        print("Predicted gender:", gender)
 
         return jsonify({
-            "text": text,
+            "text": text if text else "No speech detected",
             "gender": gender.capitalize()
         })
 
     except Exception as e:
-        print("ERROR:", e)
+        print("FATAL ERROR:", e)
         return jsonify({
             "text": "Error in transcription",
             "gender": "Undefined"
