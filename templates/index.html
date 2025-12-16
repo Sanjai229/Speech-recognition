@@ -2,23 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Speech Recognition + Gender Detection</title>
+  <title>Speech Recognition</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <div class="container">
+    <h1>Speech Recognition</h1>
 
-<h1>🎤 Speech Recognition & Gender Detection</h1>
+    <button id="recordBtn">🎤 Start Recording</button>
+    <button id="stopBtn" disabled>⏹ Stop</button>
 
-<button id="recordBtn">Start Recording</button>
-<button id="stopBtn" disabled>Stop Recording</button>
+    <h3>Transcription:</h3>
+    <p id="text">—</p>
 
-<p id="status"></p>
-
-<h3>Transcription:</h3>
-<p id="text"></p>
-
-<h3>Gender:</h3>
-<p id="gender"></p>
+    <h3>Gender:</h3>
+    <p id="gender">—</p>
+  </div>
 
 <script>
 let mediaRecorder;
@@ -29,50 +28,37 @@ const stopBtn = document.getElementById("stopBtn");
 
 recordBtn.onclick = async () => {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-  mediaRecorder = new MediaRecorder(stream, {
-    mimeType: "audio/webm;codecs=opus"
-  });
-
+  mediaRecorder = new MediaRecorder(stream);
   audioChunks = [];
 
-  mediaRecorder.ondataavailable = e => {
-    if (e.data.size > 0) audioChunks.push(e.data);
-  };
-
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
   mediaRecorder.start();
+
   recordBtn.disabled = true;
   stopBtn.disabled = false;
-  document.getElementById("status").innerText = "Recording...";
 };
 
 stopBtn.onclick = async () => {
   mediaRecorder.stop();
 
   mediaRecorder.onstop = async () => {
-    document.getElementById("status").innerText = "Transcribing...";
-
-    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
     const formData = new FormData();
-    formData.append("audio", audioBlob, "recording.webm");
+    formData.append("audio", blob, "recording.webm");
 
-    const response = await fetch("/transcribe", {
+    const res = await fetch("/transcribe", {
       method: "POST",
       body: formData
     });
 
-    const result = await response.json();
-
-    document.getElementById("text").innerText = result.text;
-    document.getElementById("gender").innerText = result.gender;
-
-    recordBtn.disabled = false;
-    stopBtn.disabled = true;
-    document.getElementById("status").innerText = "";
+    const data = await res.json();
+    document.getElementById("text").innerText = data.text;
+    document.getElementById("gender").innerText = data.gender;
   };
+
+  recordBtn.disabled = false;
+  stopBtn.disabled = true;
 };
 </script>
-
 </body>
 </html>

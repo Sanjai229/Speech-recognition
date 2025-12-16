@@ -1,7 +1,7 @@
 Flask==2.2.5
-librosa==0.11.0
-scikit-learn==1.7.2
-soundfile==0.13.1
-openai-whisper
-torch
 numpy
+librosa
+scikit-learn
+soundfile
+torch
+openai-whisper
