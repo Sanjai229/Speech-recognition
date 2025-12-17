@@ -1,82 +1,59 @@
-import os
-import pickle
-import numpy as np
-import librosa
-import soundfile
+from flask import Flask, request, jsonify, render_template
 import whisper
-from flask import Flask, render_template, request, jsonify
+import librosa
+import numpy as np
+import pickle
+import os
 
 app = Flask(__name__)
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+# Load Whisper
 print("Loading Whisper tiny model...")
 whisper_model = whisper.load_model("tiny")
 print("Whisper loaded")
 
+# Load gender model
 print("Loading gender model...")
 with open("gender_model.pkl", "rb") as f:
     gender_model = pickle.load(f)
 print("Gender model loaded")
 
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    try:
-        print("Received /transcribe request")
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file"}), 400
 
-        if "audio" not in request.files:
-            return jsonify({"text": "No audio received", "gender": "Unknown"})
+    audio_file = request.files["audio"]
+    audio_path = os.path.join(UPLOAD_FOLDER, "input.wav")
+    audio_file.save(audio_path)
 
-        audio = request.files["audio"]
+    # -------- TRANSCRIPTION --------
+    result = whisper_model.transcribe(audio_path)
+    text = result.get("text", "").strip()
 
-        webm_path = os.path.join(UPLOAD_DIR, "audio.webm")
-        wav_path = os.path.join(UPLOAD_DIR, "audio.wav")
+    # -------- GENDER PREDICTION --------
+    y, sr = librosa.load(audio_path, sr=16000)
 
-        audio.save(webm_path)
-        print("Saved webm file")
+    mfcc = librosa.feature.mfcc(
+        y=y,
+        sr=sr,
+        n_mfcc=15
+    )
 
-        # ✅ SAFE DECODE (NO FFMPEG)
-        y, sr = librosa.load(webm_path, sr=16000)
+    features = np.mean(mfcc.T, axis=0).reshape(1, -1)
+    gender = gender_model.predict(features)[0]
 
-        if y is None or len(y) < 1000:
-            print("Audio empty or too short")
-            return jsonify({"text": "No speech detected", "gender": "Unknown"})
-
-        soundfile.write(wav_path, y, sr)
-        print("WAV written. Samples:", len(y))
-
-        # 🔹 WHISPER TRANSCRIPTION
-        result = whisper_model.transcribe(wav_path, fp16=False)
-        text = result.get("text", "").strip()
-        print("Whisper output:", text)
-
-        # 🔹 GENDER PREDICTION
-        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        features = np.mean(mfcc.T, axis=0).reshape(1, -1)
-
-        gender = gender_model.predict(features)[0]
-        print("Predicted gender:", gender)
-
-        return jsonify({
-            "text": text if text else "No speech detected",
-            "gender": gender.capitalize()
-        })
-
-    except Exception as e:
-        print("ERROR:", e)
-        return jsonify({
-            "text": "Error in transcription",
-            "gender": "Unknown"
-        })
-
+    return jsonify({
+        "transcription": text if text else "No speech detected",
+        "gender": gender
+    })
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)

@@ -1,63 +1,53 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Speech Recognition</title>
-  <link rel="stylesheet" href="/static/style.css">
+    <title>Speech & Gender Recognition</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Speech Recognition</h1>
+<h1>Speech Recognition & Gender Detection</h1>
 
-    <button id="recordBtn">🎤 Start Recording</button>
-    <button id="stopBtn" disabled>⏹ Stop</button>
+<button id="record">🎤 Record</button>
+<button id="stop" disabled>⏹ Stop</button>
 
-    <h3>Transcription:</h3>
-    <p id="text">—</p>
-
-    <h3>Gender:</h3>
-    <p id="gender">—</p>
-  </div>
+<p><b>Transcription:</b> <span id="text">-</span></p>
+<p><b>Gender:</b> <span id="gender">-</span></p>
 
 <script>
-let mediaRecorder;
-let audioChunks = [];
+let recorder, audioChunks = [];
 
-const recordBtn = document.getElementById("recordBtn");
-const stopBtn = document.getElementById("stopBtn");
+document.getElementById("record").onclick = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream);
+    audioChunks = [];
 
-recordBtn.onclick = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
+    recorder.ondataavailable = e => audioChunks.push(e.data);
+    recorder.start();
 
-  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-  mediaRecorder.start();
-
-  recordBtn.disabled = true;
-  stopBtn.disabled = false;
+    document.getElementById("record").disabled = true;
+    document.getElementById("stop").disabled = false;
 };
 
-stopBtn.onclick = async () => {
-  mediaRecorder.stop();
+document.getElementById("stop").onclick = async () => {
+    recorder.stop();
 
-  mediaRecorder.onstop = async () => {
-    const blob = new Blob(audioChunks, { type: "audio/webm" });
-    const formData = new FormData();
-    formData.append("audio", blob, "recording.webm");
+    recorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", blob);
 
-    const res = await fetch("/transcribe", {
-      method: "POST",
-      body: formData
-    });
+        const res = await fetch("/transcribe", {
+            method: "POST",
+            body: formData
+        });
 
-    const data = await res.json();
-    document.getElementById("text").innerText = data.text;
-    document.getElementById("gender").innerText = data.gender;
-  };
+        const data = await res.json();
+        document.getElementById("text").innerText = data.transcription;
+        document.getElementById("gender").innerText = data.gender;
+    };
 
-  recordBtn.disabled = false;
-  stopBtn.disabled = true;
+    document.getElementById("record").disabled = false;
+    document.getElementById("stop").disabled = true;
 };
 </script>
 </body>

@@ -1,7 +1,8 @@
-Flask==2.2.5
-numpy
+flask==2.2.5
+openai-whisper
 librosa
+numpy
 scikit-learn
 soundfile
+ffmpeg-python
 torch
-openai-whisper

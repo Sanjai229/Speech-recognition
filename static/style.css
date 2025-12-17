@@ -1,40 +1,30 @@
 body {
     background: #0f172a;
-    font-family: Arial, sans-serif;
     color: #e5e7eb;
+    font-family: Arial, sans-serif;
 }
 
 .container {
     width: 420px;
-    margin: 100px auto;
+    margin: 60px auto;
     background: #020617;
-    padding: 30px;
+    padding: 25px;
     border-radius: 10px;
     text-align: center;
 }
 
-h1 {
-    margin-bottom: 20px;
-}
-
-.controls button {
-    padding: 10px 20px;
+button {
+    padding: 10px 18px;
     margin: 10px;
+    font-size: 14px;
+    border-radius: 6px;
     border: none;
-    border-radius: 5px;
-    background: #2563eb;
-    color: white;
     cursor: pointer;
 }
 
-.controls button:disabled {
-    background: #475569;
-}
+#startBtn { background: #22c55e; }
+#stopBtn { background: #ef4444; }
 
 .output {
     margin-top: 20px;
-}
-
-#transcription {
-    min-height: 50px;
 }
